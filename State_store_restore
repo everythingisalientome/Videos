@@ -31,3 +31,5 @@ TESTS (offline, fakes)
 Run affected test files while working, the full suite once at the end.
 
 Report, at most 12 lines, saved as docs/build-log/piece-7.md: what changed, the test count, and one line for anything that did not match this spec. No proposals.
+
+One check, answer in at most 4 lines. In both resume paths (an interrupted step, and nothing in progress), is launch_app called for the next step's app before that step's done_when check or first action? Give the function and line. If either path does not, add it with one test each and report the new test count. Nothing else.
