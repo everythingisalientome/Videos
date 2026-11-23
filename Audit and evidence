@@ -1,0 +1,31 @@
+Piece 9: audit and evidence. Implement exactly this spec. Do not run live personas. Do not open screenshots. Do not read earlier build logs.
+
+Read only: harness/runner/runner.py, harness/runner/escalate.py, harness/loop/step_loop.py, the model client's call function, the code behind --keep-screenshots, harness/tools/launch_app.py, scripts/run_persona.py.
+
+AUDIT LOG
+1. New harness/runtime/audit.py. One JSON-lines file per work item at output/audit/<key>.jsonl, appended, overridable with --audit-dir. Events before pickup go to output/audit/_no-item.jsonl.
+2. One line per model call: timestamp, persona, key, step id, call type (act, verify, read, judgment), model name, attempt, duration, any pause or retry, and the result (action kind and target, or true/false, or the answer). For act calls add the foreground window title and process at execution.
+3. One line each for: tool step result, launch_app (started or adopted an open window), capture (name, value, both reads), rule evaluation (rule id, version, inputs, outcome), blocked key, escalation, resume, completion, emergency stop.
+4. Typed text is logged as its value_ref name, never the text. Nothing in the secret register is ever written. The console still prints no field values.
+
+EVIDENCE
+5. During a run, screenshots sent to the model are kept in a working folder output/evidence/<key>/work.
+6. When the item reaches completed: keep only the last step's final screenshot, delete the rest.
+7. When the item reaches needs_human: keep the final screenshot of the last verified step and the last screenshot of the failing step, delete the rest.
+8. While the item is in_progress (stop, outage), keep the working folder so a resume continues in it.
+9. --debug keeps every screenshot. --keep-screenshots becomes an alias of --debug writing to the folder given.
+10. Each kept screenshot's file name is recorded in the audit log.
+
+FIXES
+11. launch_app logs one INFO line when it adopts an open window, as it does when it starts one.
+12. "Rules evaluated" counts rules actually evaluated, not steps. Steps with no rules write no rule_results entry.
+13. No test may write under the real output/ folder (review file, needs-human file, audit, evidence, state). Use temp dirs. Add one test that fails if the suite creates or modifies anything under output/.
+
+TESTS (offline)
+- a run with N model calls writes N model-call lines
+- typed text and registered secrets never appear in the audit file
+- completed keeps one screenshot; needs_human keeps two; debug keeps all; in_progress keeps the working folder
+- items 11 to 13
+Run affected test files while working, the full suite once at the end.
+
+Report, at most 10 lines, saved as docs/build-log/piece-9.md: what changed, the test count, one line for anything that did not match this spec. No proposals.
