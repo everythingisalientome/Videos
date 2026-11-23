@@ -1,0 +1,33 @@
+Piece 7: state store and resume. Implement exactly this spec. Do not run live personas. Do not open screenshots. Do not read earlier build logs.
+
+Read only: harness/runner/runner.py, harness/runner/escalate.py, harness/runner/rules.py, the verify function in harness/loop/step_loop.py, harness/tools/launch_app.py (signature only), notepad-note's persona.yaml and procedure.yaml, and the state machine section of docs/template-reference.md. Use the statuses defined there; do not invent new ones.
+
+STORE
+1. New harness/runtime/state.py. One JSON file per work item at output/state/<key>.json (key made filename-safe), overridable with --state-dir. Written only by the harness, with a temp file then os.replace.
+2. Record: schema_version, key, created, updated, values (work-item fields and captures, each with its type; numbers as strings), and personas.<persona id> holding status, rules_version, steps.<step id> (status, attempts, resumed, verified_at), rule_results, and escalation reason if any. Reserve an empty model_notes list; the harness never reads it.
+3. At pickup: create the record, or load it if the key exists. If this persona's section is already completed or needs_human, escalate "already processed" and do no work.
+4. Before a step starts, write it as in progress. Mark it done only after verify, captures and rules have all finished with "continue". Skipped steps are recorded as skipped.
+5. escalate() also writes needs_human and the reason to the record. Completion writes completed.
+
+RESUME
+6. At start-up, before polling for work, look for records where this persona's status is in progress. If any, resume the oldest; values and rule_results come from the record, not the queue. Pickup and claim are not repeated.
+7. Find the interrupted step. If that step was already resumed once, escalate. Otherwise set resumed, call launch_app for the step's app, then:
+   - screen step: run its done_when check on a fresh settled screenshot.
+     - true: run the step's captures and rules if they are not recorded, then mark done and continue.
+     - not true and not irreversible: redo the step.
+     - not true or unusable answer, and irreversible: escalate.
+   - tool step: use verify_with the same way if present; otherwise rerun it, unless irreversible, then escalate.
+8. Then continue with the remaining steps as normal. The gate uses the restored rule_results.
+9. Emergency stop and provider outage leave the record in progress so the next start resumes it.
+
+TESTS (offline, fakes)
+- a record is written after each verified step, and in progress is written before a step starts
+- kill mid-step, restart: each of the three screen-step rows of the resume table
+- done_when true on resume but captures missing: captures and rules run before the step is marked done
+- a second interruption of the same step escalates
+- tool step resume, with and without verify_with
+- already-processed key escalates
+- Decimal values survive a save and load
+Run affected test files while working, the full suite once at the end.
+
+Report, at most 12 lines, saved as docs/build-log/piece-7.md: what changed, the test count, and one line for anything that did not match this spec. No proposals.
