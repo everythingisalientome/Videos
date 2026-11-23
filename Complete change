@@ -47,3 +47,10 @@ Read only: docs/CHANGE-GUIDE.md, CLAUDE.md, scripts/run_persona.py (arguments on
 10. CLAUDE.md: list the commands from sections 1 to 4, and these standing rules: never run a live persona, the user runs them; never open screenshots; label every proposed fix HARNESS or PERSONA/APP FILE; tests never write under output/; do not add, rename or remove a template field without recording it in the template reference.
 
 Report, at most 8 lines: sections written, and each place the code differed from this prompt.
+
+
+
+Two small items, nothing else. Do not launch sub-agents or forks.
+1. Is the "wait" action's duration capped anywhere? If not, clamp it to guardrails max_wait_seconds_per_action (default 10 if absent), log when clamped, add one test.
+2. Add to CLAUDE.md standing rules: never launch sub-agents or forks; do the work in the main session.
+Report in 3 lines with the test count.
