@@ -1,0 +1,17 @@
+Piece 8: guardrails. Implement exactly this spec. Do not run live personas. Do not open screenshots. Do not read earlier build logs.
+
+Read only: quotation-creator's guardrails.yaml, config/tools.yaml, harness/loop/step_loop.py, harness/runner/runner.py, the code that builds pre_action_check, and harness/runtime/compare.py.
+
+For each item: if it already works and is tested, change nothing and say "already done".
+
+1. Blocked keys: a key action matching the guardrails blocked list is refused before execution. Match ignoring case and key order ("Alt+F4" equals "f4+alt"). The refusal is recorded in the step's action history so the model can choose another action, and it counts toward the action limit. The emergency-stop hotkey is always blocked.
+2. Allowed-app check: before every action, the foreground window must belong to the current step's app (launched handle for web, process for desktop, so an app's own dialogs pass). On failure, execute nothing and escalate, naming the expected app and the actual foreground process.
+3. Irreversible steps are never retried. On a step marked irreversible, a failed or unclear verify, the action limit, or cannot_proceed escalates immediately with no second attempt.
+4. One escalate() function used by every needs_human path. It marks the row as today and appends one JSON line to a review file: timestamp, persona, item key, step id, reason, rule id and rules version if any. No field values, no screenshots. Use the escalation tool's path from tools.yaml if one is defined, otherwise output/review/needs-human.jsonl.
+5. On escalation, leave the screen untouched: close nothing.
+6. compare.py: in_list must compare text trimmed and case-insensitive, like equals.
+
+Tests: blocked key refused; reordered key combination refused; Save As dialog passes the app check; unrelated foreground window escalates with no action executed; irreversible step is not retried in each of the three cases; every needs_human path writes one review line; in_list.
+Run the affected test files while working, the full suite once at the end.
+
+Report, at most 10 lines, also saved as docs/build-log/piece-8.md: for each item "already done" or what changed, the test count, and one line for anything that did not match this spec. No proposals.
