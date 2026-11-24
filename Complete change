@@ -1,56 +1,18 @@
-Piece 11: complete docs/CHANGE-GUIDE.md and CLAUDE.md. Documentation only: change no harness code, run no personas, read no build logs.
+Three additions for an app that opens in its own window and needs a sign-in. Do not run live personas. Do not launch sub-agents. Read only: harness/tools/launch_app.py, the app-header and persona and procedure schemas, config/tools.yaml, the tool-step code in harness/runner/runner.py, harness/loop/execute.py, the prompt builder, the secret register, the screenshot/evidence code, scripts/run_persona.py, docs/template-reference.md.
 
-Read only: docs/CHANGE-GUIDE.md, CLAUDE.md, scripts/run_persona.py (arguments only), the config loader and schema files under harness/config, docs/template-reference.md. Where a command, flag or path below does not match the code, write what the code does and list the difference in your report.
+1. App window chosen by title. New optional app-header field launch.window_title_contains: a list of texts (a single text is accepted as a list of one). When present, launch_app polls up to wait_seconds for a window that is new since the pre-launch snapshot, belongs to the expected process, and whose title contains any of the texts (case-insensitive). Exactly one matching window becomes the app window and is remembered; other new windows are ignored and left open. No match or several matching windows is a ToolError naming the titles seen. When the field is absent, behaviour is unchanged. Foreground, maximised and primary-monitor checks apply to the chosen window. Audit the choice and which text matched.
 
-1. "How to run a persona": the run_persona.py command with every option and one line each: persona id, --csv-path, --debug (alias --keep-screenshots <folder>), --state-dir, --audit-dir, --countdown. State: needs an unlocked session, hands off the mouse and keyboard, Ctrl+Alt+Q stops it, close the CSV in Excel first, and a run resumes an in_progress item before taking new work.
+2. Tool pause_for_human (built, not used by any persona yet). A tool step with a message: prints it, waits for Enter on the console, checks the emergency stop while waiting, escalates after the step's timeout (default 600 s). After Enter it brings the step's app window to the foreground and verifies it. verify_with works as for any tool step. Runs only with --attended; otherwise escalates immediately.
 
-2. "How to run the schema check": scripts/check_config.py. A failure names the file and field; the persona will not start until it passes.
+3. Secrets from the environment.
+- persona.yaml gains optional secrets: a map of name to environment variable name. run_persona.py gains --env-file <path> to load variables from a file first. A declared secret whose variable is missing or empty refuses to start, naming the variable only.
+- Every secret value is added to the secret register at start-up.
+- A procedure step gains optional allow_secrets: a list of names. The act prompt for that step lists them as "secret:<name>" with no values. A type action with value_ref "secret:<name>" is resolved at execution only. On any other step it is a refused action recorded in history.
+- A secret value is never placed in a prompt, work-item values, the state file, the audit log, the console or an exception message. The audit shows the value_ref name.
+- Screenshots captured during a step with allow_secrets are sent to the model but never written to disk, including under --debug and evidence.
+- Load check: a step with allow_secrets must be irreversible: true, so it is never retried.
 
-3. "How to run in debug mode": --debug keeps every screenshot sent to the model. Normal runs keep one screenshot for a completed item and two for a needs_human item under output/evidence/<key>. State is in output/state, the audit log in output/audit. All three hold field values or screen content: treat as sensitive, keep on local disk, never commit.
+Record all new fields and the tool in docs/template-reference.md and docs/CHANGE-GUIDE.md. Add .env and *.env to .gitignore.
 
-4. "How to run the tests": the pytest command. All tests run offline with fakes; none needs a live site or a model. Tests must not write under output/ and one test enforces it. Live checks are manual: scripts/launch_app_smoke.py and a notepad-note run followed by scripts/check_notepad_notes.py.
-
-5. "Where each template field is handled": fill the table from the schema, one row per field, module path only. Do not open modules beyond what is needed to name them.
-
-6. "Troubleshooting": add these rows.
-| Verify fails though the step worked | done_when asks for evidence the screen cannot show (text clipped in a narrow box, value below the fold) | Reword done_when to what proves the outcome and is visible |
-| Model clicks something that has just disappeared | Screenshot taken before the screen settled | Look for "screen did not settle" lines; review the stable-capture constants |
-| needs_human: PreActionCheckFailed, foreground process is X | Another window took focus (popup, a click by a person) | Mute notifications, keep hands off, rerun |
-| launch_app fails: more than one window | Several windows of that app are open | Close the extras |
-| launch_app fails: not in foreground | Windows refused the focus change, or the app is hung | Check the app responds; rerun |
-| Run stops before claim, no CSV change | A declared work-item field is not a column: wrong CSV for this persona | Use the persona's own CSV |
-| Row goes to needs_human naming a field | That field is blank on the row | Fix the row |
-| Step fails on the action limit | The step needs more actions than the limit allows | Split the step or raise the limit in guardrails.yaml |
-| Long gaps between actions | The provider is rate-limiting; pauses are logged | Wait; the run ends as a provider outage after the pause budget |
-| Run starts with "Resuming <key>" | A state record is still in_progress | Let it finish, or remove that file in output/state |
-| needs_human: already processed | The reference was used before | Use a new reference, or remove its state record |
-| Save step fails with access denied | The target folder is not writable | Change the path in the work item |
-| CSV cannot be written | The file is open in Excel | Close it |
-| "This Windows session is locked" | The session is locked or disconnected | Unlock; the harness needs an active desktop |
-
-7. Add a section "Rules for writing templates":
-- Besides the header, an app file lists exceptions and traps only. Place a lesson by scope: true of any app goes in the general layer; this app, the app file; one step, that step's hints; history, the build log.
-- done_when holds only the condition, no rationale, and only what proves the step and can be seen in one screenshot.
-- After an irreversible step, done_when checks only what proves the save.
-- Every field in work_item.fields is required. A missing column stops the run before claim; a blank value sends the row to a human.
-- A computed rule's value must be a capture with double_read.
-- Irreversible steps are never retried.
-
-8. Add a section "Known limits":
-- Not built: vault login, clipboard-paste typing for apps that ignore direct input, multi-monitor, screenshot masking, several agents on one queue, per-persona queue paths (the path is shared in tools.yaml).
-- The outcome "stop" behaves as send_to_human.
-- Not yet proven on a live screen: a rule stopping an item, a blocked key, an already-open web app in a full run.
-- Only tested on one clean web app and Notepad at 1920x1080.
-
-9. Remove the "to be completed" markers and the status line that mentions them. Add one change-log row dated today: "Build pieces 0 to 9 complete; guide completed".
-
-10. CLAUDE.md: list the commands from sections 1 to 4, and these standing rules: never run a live persona, the user runs them; never open screenshots; label every proposed fix HARNESS or PERSONA/APP FILE; tests never write under output/; do not add, rename or remove a template field without recording it in the template reference.
-
-Report, at most 8 lines: sections written, and each place the code differed from this prompt.
-
-
-
-Two small items, nothing else. Do not launch sub-agents or forks.
-1. Is the "wait" action's duration capped anywhere? If not, clamp it to guardrails max_wait_seconds_per_action (default 10 if absent), log when clamped, add one test.
-2. Add to CLAUDE.md standing rules: never launch sub-agents or forks; do the work in the main session.
-Report in 3 lines with the test count.
+Tests: item 1 (right window of two; match on the second text in the list; none; several; field absent). Item 2 (Enter continues; timeout; no --attended; foreground restored). Item 3 (secret typed from env; missing variable refuses start; secret ref refused on a step without allow_secrets; value absent from prompt, state, audit and logs; no screenshot written for such a step; load check).
+Report in 8 lines with the test count.
