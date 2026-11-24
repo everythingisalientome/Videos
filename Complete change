@@ -1,18 +1,8 @@
-Three additions for an app that opens in its own window and needs a sign-in. Do not run live personas. Do not launch sub-agents. Read only: harness/tools/launch_app.py, the app-header and persona and procedure schemas, config/tools.yaml, the tool-step code in harness/runner/runner.py, harness/loop/execute.py, the prompt builder, the secret register, the screenshot/evidence code, scripts/run_persona.py, docs/template-reference.md.
+One harness change plus a manual test script. Do not run live personas. Do not launch sub-agents. Read only: the typing function in the screen package and its tests.
 
-1. App window chosen by title. New optional app-header field launch.window_title_contains: a list of texts (a single text is accepted as a list of one). When present, launch_app polls up to wait_seconds for a window that is new since the pre-launch snapshot, belongs to the expected process, and whose title contains any of the texts (case-insensitive). Exactly one matching window becomes the app window and is remembered; other new windows are ignored and left open. No match or several matching windows is a ToolError naming the titles seen. When the field is absent, behaviour is unchanged. Foreground, maximised and primary-monitor checks apply to the chosen window. Audit the choice and which text matched.
+1. Typing mode. Today characters are sent as unicode packets (KEYEVENTF_UNICODE). Some web apps filter input by key code and ignore those. Add a second mode, "keys": for each character, look up its virtual key and shift state on the current keyboard layout (VkKeyScanExW); if it maps without Ctrl or Alt, send real key down/up events with the virtual key and its scan code, pressing Shift when needed and compensating if Caps Lock is on; otherwise fall back to a unicode packet for that character. Keep the existing per-character pause. Make "keys" the default; keep "unicode" available through a named constant.
 
-2. Tool pause_for_human (built, not used by any persona yet). A tool step with a message: prints it, waits for Enter on the console, checks the emergency stop while waiting, escalates after the step's timeout (default 600 s). After Enter it brings the step's app window to the foreground and verifies it. verify_with works as for any tool step. Runs only with --attended; otherwise escalates immediately.
+2. scripts/type_test.py --mode keys|unicode --text 12345 --countdown 5: after the countdown it types the text into whatever has focus, using that mode. No model calls, no screenshots.
 
-3. Secrets from the environment.
-- persona.yaml gains optional secrets: a map of name to environment variable name. run_persona.py gains --env-file <path> to load variables from a file first. A declared secret whose variable is missing or empty refuses to start, naming the variable only.
-- Every secret value is added to the secret register at start-up.
-- A procedure step gains optional allow_secrets: a list of names. The act prompt for that step lists them as "secret:<name>" with no values. A type action with value_ref "secret:<name>" is resolved at execution only. On any other step it is a refused action recorded in history.
-- A secret value is never placed in a prompt, work-item values, the state file, the audit log, the console or an exception message. The audit shows the value_ref name.
-- Screenshots captured during a step with allow_secrets are sent to the model but never written to disk, including under --debug and evidence.
-- Load check: a step with allow_secrets must be irreversible: true, so it is never retried.
-
-Record all new fields and the tool in docs/template-reference.md and docs/CHANGE-GUIDE.md. Add .env and *.env to .gitignore.
-
-Tests: item 1 (right window of two; match on the second text in the list; none; several; field absent). Item 2 (Enter continues; timeout; no --attended; foreground restored). Item 3 (secret typed from env; missing variable refuses start; secret ref refused on a step without allow_secrets; value absent from prompt, state, audit and logs; no screenshot written for such a step; load check).
-Report in 8 lines with the test count.
+Tests: digits and lower-case letters produce virtual-key events; upper case and shifted symbols press Shift; Caps Lock on is compensated; an unmappable character falls back to unicode; unicode mode unchanged.
+Report in 4 lines with the test count.
