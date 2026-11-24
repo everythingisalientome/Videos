@@ -1,0 +1,11 @@
+Three additions needed by the first real app. Do not run live personas. Do not launch sub-agents. Read only: harness/tools/launch_app.py, the pre-action check, the work_queue_csv tool, config/tools.yaml, harness/runner/runner.py, scripts/run_persona.py, docs/template-reference.md.
+
+1. Tool adopt_window, for an app that opens a second window after a click. A tool step with args app and title_contains (list). It polls (default 15 s) for a top-level window in the app's allowed processes that was not present when the app was launched, is not already held for that app, and whose title contains any of the texts. Exactly one match is pushed on top of that app's window stack; none or several is a ToolError naming the titles seen. It brings the window to the foreground and verifies foreground only: no maximise, no resize. The pre-action check expects the foreground window to be the top of the stack. When the top window no longer exists, the harness pops it, brings the next one to the foreground, verifies it, and audits the pop, before the next action or screenshot. Screenshots stay the whole primary monitor. Audit adopt and pop.
+
+2. work_queue_csv.mark gains an optional arg columns: a map of column name to value, with {name} templates filled the same way as note. Every named column must already exist in the CSV header, otherwise ToolError before any write. Written atomically with the status. The key, status, status_note and updated_at columns cannot be named.
+
+3. run_persona.py gains --max-items N (default 1). After an item ends completed, the runner returns to the pickup step in the same process, so launch_app adopts the already-open app. It stops after N items, when there is no work, or as soon as an item ends needs_human. Each item keeps its own state, audit and evidence. Remembered windows and window stacks persist across items in one run.
+
+Record all three in docs/template-reference.md and docs/CHANGE-GUIDE.md.
+Tests: adopt (one match; none; several; pre-launch window ignored; pop when the window closes; action refused when another window is in front). columns (written; unknown column refused with no write; reserved column refused). max-items (two items in one process with one launch; stops on needs_human; stops on no work).
+Report in 8 lines with the test count.
